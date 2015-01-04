@@ -1,0 +1,279 @@
+
+<!DOCTYPE html>
+  <head>
+      <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="description" content="Automan Efforts - Audio and music technology by those who use it." />
+    <meta name="keywords" content="Automan Efforts, SSL, automation, MTC, audio, music, hardware, software, mixer" />
+    <meta name="robots" content="index, follow" />
+        
+    <link rel="icon" type="image/png" href="http://www.automanefforts.com/images/icon.png" />
+    <link rel="stylesheet" type="text/css" href="ae_blacknyellow.css" media="screen" />
+    <script src="js/jquery-1.9.1.min.js"></script>
+    <script src="js/ae.js"></script>
+  <title>AUTOMAN EFFORTS - Make an Effort.</title>
+
+</head>
+    
+<body>
+    
+
+    <div id="wrapper">
+        <div id="header">
+        <p class = "cent"> <img alt="Automan Efforts" src="images/AE_LOGO_text.png" /></p>
+        </div>
+
+
+        <div class="colmask fullpage" id="content">
+
+                <div class="aeFull">
+                        <p class = "cent"><img alt="Make an Effort." src="images/AE_MAE.png" width="494" height="138" /></p>
+                </div>
+
+        <div class="menuWrapper">
+            <div class="menu">
+                <div class="menuButton menuButtonFocus" id="shop1" onclick="clickShop(1)">Your Target - Our Effort</div>
+                <div class="menuButton menuButtonNotFocus" id="shop2" onclick="clickShop(2)">Send request</div>
+            </div>
+        </div>
+            
+            <img src="images/ex08mini.png" hidden id="ex08">
+            
+            <div class="aeFull" id="shopContent">
+                <div class="centerHeader"><img alt="CV96" src="images/AUTOMAN_white.png" /><img alt="CV96" src="images/CV96_white.png" /></div>
+                <p style="text-align: center;">Let us suggest a streamlined system for you. <br/>Please fill in some info about your console:
+                </p>
+                <hr>
+                <div class="shopTable">
+                    <table>
+                        <tr>
+                             <th>SSL Series</th>
+                             <td>
+                                 <select name="sslSeries" onchange="changeSeries(this)">
+                                     <option value="E">E</option>
+                                     <option value="G">G</option>
+                                     <option value="E/G">E/G</option>
+                                     <option value="G+">G+</option>
+                                     <option disabled value="J/K">J/K</option>
+                                 </select>
+                             </td>
+                        </tr>
+                        <tr>
+                             <th>Console Class</th>
+                             <td> 
+                                 <select name="sslType" onchange="changeType(this)">
+                                     <option value="4000">4000</option>
+                                     <option value="5000">5000</option>
+                                     <option value="6000">6000</option>
+                                     <option value="8000">8000</option>
+                                     <option disabled value="9000">9000</option>
+                                 </select>
+                             </td>
+                        </tr>
+                        <tr>
+                             <th>Frame size</th>
+                             <td> 
+                                 <select name="sslSize">
+                                     <option value="24">24</option>
+                                     <option value="32">32</option>
+                                     <option value="40">40</option>
+                                     <option value="48">48</option>
+                                     <option value="56">56</option>
+                                     <option value="64">64</option>
+                                     <option value="72">72</option>
+                                     <option value="80">80</option>
+                                     <option value="88">88</option>
+                                     <option value="96">96</option>
+                                 </select>
+                             </td>
+                        </tr>
+                        <tr>
+                             <th>Mounted channels</th>
+                             <td>
+                                 <select name="sslChannels" id="sslChannels"  onchange="changeChannels(this)">
+                                     <option value="24">24</option>
+                                     <option value="32">32</option>
+                                     <option value="40">40</option>
+                                     <option value="48">48</option>
+                                     <option value="56">56</option>
+                                     <option value="64">64</option>
+                                     <option value="72">72</option>
+                                     <option value="80">80</option>
+                                     <option value="88">88</option>
+                                     <option value="96">96</option>
+                                 </select>
+                             </td>
+                        </tr>
+                        <tr>
+                             <th>Total Recall</th>
+                             <td>
+                                 <select name="sslTr">
+                                     <option value="noTr">No</option>
+                                     <option value="tr">Yes</option>
+                                 </select>
+                             </td>
+                        </tr>
+                        <tr>
+                             <th>Automation</th>
+                             <td>
+                                 <select name="sslAuto">
+                                     <option value="vcaNoCPU">VCA w/o Computer</option>
+                                     <option value="vca">VCA</option>
+                                     <option value="ultimation">Ultimation</option>
+                                 </select>
+                             </td>
+                        </tr>    
+                    </table>
+                </div>
+                
+                <div id="ourEffort" style="text-align: center">
+                    <canvas id="cv96canvas" height="120" width="400" style="border:1px solid #000000;"></canvas>
+                </div>
+                
+                
+                
+                
+            </div>
+        </div>
+
+        <div id="footer">
+                <p class = "cent">All information is subject to change. © 2014 Automan Efforts</p>
+        </div>
+    </div>
+        
+<script> 
+    
+    lastRegFocused = 1;
+    lastTutFocused = 1;
+    lastShopFocused = 1;
+    
+    function clickReg(reg) {
+ 
+        var id="#region"+reg;
+        var lastId = "#region"+lastRegFocused;
+        
+        if(id!==lastId)
+            {
+                $(lastId).removeClass("menuButtonFocus");
+                $(lastId).addClass("menuButtonNotFocus");
+
+                $(id).removeClass("menuButtonNotFocus");
+                $(id).addClass("menuButtonFocus");  
+                
+                $("#cv96ComponentsContent").html(getRegContent(reg));
+                lastRegFocused=reg;
+            }
+    };
+    
+    function clickTut(tut) {
+ 
+        var id="#tut"+tut;
+        var lastId = "#tut"+lastTutFocused;
+        
+        if(id!==lastId)
+            {
+                $(lastId).removeClass("menuButtonFocus");
+                $(lastId).addClass("menuButtonNotFocus");
+
+                $(id).removeClass("menuButtonNotFocus");
+                $(id).addClass("menuButtonFocus");  
+                
+                $("#tutorialsContent").html(getTutContent(tut));
+                lastTutFocused=tut;
+                setIFrameSize();
+            }
+    };
+    
+    function clickShop(tab) {
+ 
+        var id="#shop"+tab;
+        var lastId = "#shop"+lastShopFocused;
+        
+        if(id!==lastId)
+        {
+            $(lastId).removeClass("menuButtonFocus");
+            $(lastId).addClass("menuButtonNotFocus");
+
+            $(id).removeClass("menuButtonNotFocus");
+            $(id).addClass("menuButtonFocus");  
+
+            $("#shopContent").html(getShopContent(tab));
+            lastShopFocused=tab;
+        }
+    };
+    
+    
+    function changeSeries(sslSeries) {
+ 
+        var series = sslSeries.value;
+        var channels = document.getElementById("sslChannels").value;
+        var banks = channels/8;
+        
+        
+        var c = document.getElementById("cv96canvas");
+        var ctx = c.getContext("2d");
+        var img = document.getElementById("ex08");
+        
+        for(n=0;n<banks;n++)
+            {
+             ctx.drawImage(img,n*23,0);   
+            }
+    };
+    
+    function changeChannels(sslChannels) {
+ 
+        var channels = sslChannels.value;
+        var banks = channels/8;
+
+        var c = document.getElementById("cv96canvas");
+        var ctx = c.getContext("2d");
+     
+        var img = document.getElementById("ex08");
+        
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0,0,400,120);
+        
+        for(n=0;n<banks;n++)
+            {
+             ctx.drawImage(img,n*23,0);   
+            }
+    };
+    
+    
+    $(window).resize(function () {
+        setIFrameSize();
+    });
+    
+    function setIFrameSize() {
+        var parentDivWidth = $("#youtubeFrame").parent().width();
+        var parentDivHeight = $("#youtubeFrame").parent().height();
+        $("#youtubeFrame")[0].setAttribute("width", parentDivWidth);
+        $("#youtubeFrame")[0].setAttribute("height", parentDivHeight);
+    };
+ 
+  
+//    (function(doc) {
+//
+//        var addEvent = 'addEventListener',
+//            type = 'gesturestart',
+//            qsa = 'querySelectorAll',
+//            scales = [1, 1],
+//            meta = qsa in doc ? doc[qsa]('meta[name=viewport]') : [];
+//
+//        function fix() {
+//            meta.content = 'width=device-width, initial-scale=0.5, minimum-scale=' + scales[0] + ',maximum-scale=' + scales[1] +',user-scalable=yes;';
+//            doc.removeEventListener(type, fix, true);
+//            alert("fix");
+//        }
+//
+//        if ((meta = meta[meta.length - 1]) && addEvent in doc) {
+//            fix();
+//            scales = [.25, 1.6];
+//            doc[addEvent](type, fix, true);
+//        }
+//
+//    }(document));
+
+</script>
+</body>
+
+</html>

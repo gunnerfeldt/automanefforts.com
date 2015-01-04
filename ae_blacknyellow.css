@@ -1,0 +1,279 @@
+	/* <!-- */
+	/* General styles */
+	body {
+		margin:0;
+		padding:0;
+		border:0;			/* This removes the border around the viewport in old versions of IE */
+		background:#000000;
+		font-size:90%;
+		font-family: "Avenir Next", Avenir, Helvetica, sans-serif; 
+                text-align: center;
+                font-weight: 500;
+		width:100%;
+	}
+        #wrapper{
+                max-width: 846px;
+                display: block;
+		margin:auto;
+        }
+	a {
+		color:#000000;
+	}
+	a:hover {
+		color:#fff;
+/*		background:#ffcc00;*/
+		text-decoration:none;
+	}
+	h1, h2, h3 {
+            margin:.8em 0 .2em 0;
+            padding:0;
+            letter-spacing:0.03em;
+	}
+        h2{
+            font-size: 1.8em;  
+        }
+        .aeFull .centerHeader{
+            text-align: center;
+        }
+        .aeFull span{
+            font-size: 1.2em;
+        }
+        #fullLeft{
+            margin-left: -18px;
+        }
+        
+	p {
+		margin:.4em 0 .8em 0;
+		padding:0;
+		text-align: left;
+	}
+	p.cent {
+			text-align: center;
+	}
+	p.bild {
+			text-align: center;
+	}
+	img {
+		margin:10px 0 5px;
+		max-width: 100%; height: auto
+	}
+	img.fleft {
+		float:left;
+		padding-right: 10px;
+	}
+	img.fright {
+		float:right;
+		padding-left: 10px;
+	}
+	/* Header styles */
+	#header {
+		font-family: "Avenir Next Bold", Avenir, sans-serif;  
+		clear:both;
+		float:left;
+		width:100%;
+		color: #ffffff;
+                margin-top: 20px;
+	}
+	
+        #content{
+            margin-top: -15px;
+        }
+	/* column container */
+	.colmask {
+		position:relative;	/* This fixes the IE7 overflow hidden bug */
+		clear:both;
+		float:left;
+		width:100%;			/* width of whole page */
+		overflow:hidden;		/* This chops off any overhanging divs */
+		
+	}
+	/* common column settings */
+	.colright,
+	.colmid,
+	.colleft {
+		float:left;
+		width:100%;
+		position:relative;
+	}
+	.col1,
+	.col2,
+	.col3 {
+		color: #000000;
+		float:left;
+		position:relative;
+		padding:0 0 1em 0;
+		overflow:hidden;
+	}
+	/* Full page settings */
+	.fullpage {
+		background:#000000;		/* page background colour */
+	}
+	
+	.fullpage .aeFull {
+            /*font-family: "Avenir Next", Avenir, sans-serif; */
+            background-color: #ffcc00;
+            /*width: 690px;*/
+            max-width: 684px;
+            min-width: 409px;
+            padding: 18px;
+            border: 0px;
+            border-radius: 10px;
+            margin: 45px;
+            clear:both;
+	}
+
+	.fullpage .aeTwoThirds {
+            /*font-family: "Avenir Next", Avenir, sans-serif;  */
+            background-color: #ffcc00;
+            width: 429px; /* 445 */
+            height: 427px; /* 445 */
+            padding: 0px 18px 18px 18px;
+            border: 0px;
+            border-radius: 10px;
+            margin: 0px 0px 45px 45px;
+            float: left;
+	}
+	
+	.fullpage .aeThirds {
+     /*	font-family: "Avenir Next", Avenir, sans-serif;  */
+            background-color: #ffcc00;
+            width: 174px; /* 200 */
+            height: 182px; /* 200 */
+            padding: 0px 18px 18px 18px;
+            border: 0px;
+            border-radius: 10px;
+            margin: 0px 0px 45px 45px;
+            float: left;
+            line-height: 20px;
+	}
+        
+        .aeFull{
+            text-align: left;
+        }
+        #logo{
+            margin-top: 15px;
+        }
+	
+	/* Footer styles */
+	#footer {
+		clear:both;
+		float:left;
+		width:100%;
+	}
+	#footer p {
+		padding:25px;
+		margin:0;
+		color: #ffcc00;
+	}
+	/* --> */
+        
+             
+/*
+menu items
+*/
+.menuButton{
+    display: table-cell;
+    position: relative;
+    text-align: center;
+    border-radius: 10px 10px 0px 0px;
+    padding-top: 4px;
+    line-height: 24px;
+}
+.menuButtonNotFocus{
+    background-color: #777; 
+  /*  border:1px solid #333; */
+  border:none;
+  border-right: 1px solid #6F6F6F;
+}
+.menuButtonFocus{
+    background-color: #FFCC00; 
+    border:1px solid #FFCC00;
+    border-bottom: none;
+   border-bottom: 1px solid #FFCC00; 
+}
+
+.menuButton:hover{
+    cursor: pointer;
+}
+
+/*
+menu - footer
+*/
+
+.menuWrapper{
+    clear: both;
+    text-align: center;
+    max-width: 720px;
+    min-width: 445px;
+    border: 0px;
+    border-radius: 10px;
+    margin: 0 45px -1px 45px;
+}
+
+.menu{
+  
+    position: relative;
+    background-color: #000; 
+    display: table;
+    text-align: center; 
+    width:100%;
+    color: #333; 
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 30px;
+    table-layout:fixed;
+    margin: auto;
+}
+
+#cv96ComponentsContent{
+    margin-top: 0;
+    border-radius: 0 0 10px 10px;
+    
+}
+#tutorialsContent{
+    margin-top: 0;
+    border-radius: 0 0 10px 10px;
+    
+}
+#shopContent{
+    margin-top: 0;
+    border-radius: 0 0 10px 10px;
+    height: 600px;
+    
+}
+        
+.youtubeWrapper{
+    text-align: center;
+    overflow: auto;
+    -webkit-overflow-scrolling:touch;
+}
+
+iframe {
+        min-width: 100%; 
+        width: 100px;
+        *width: 100%; 
+}
+
+table th{
+    text-align: right;
+}    
+
+table{
+    width: 100%; 
+}
+.shopTable {
+    display: inline-table;
+    text-align: left;
+    margin-top: 20px;
+}
+
+hr {
+    display: block;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+    margin-left: auto;
+    margin-right: auto;
+    border-style: dotted;
+    border-width: 1px;
+    color: #fff;
+} 
