@@ -1,0 +1,655 @@
+<!--
+<html manifest='manifest.appcache'>
+-->
+<!DOCTYPE html>
+    <head>
+        <title>SW96 Remote</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">    
+        <meta name="viewport" content="minimum-scale=0.25, maximum-scale=1.0, user-scalable=no">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-touch-fullscreen" content="yes">  
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <link href="css/style.css" rel="stylesheet" type="text/css"/>
+        <link href="css/files.css" rel="stylesheet" type="text/css"/>
+        <script src="js/jquery-1.9.1.min.js"></script>
+        <script src="js/libs/jqueryui-1.10.0/jquery-ui.min.js"></script>
+        <script type="text/javascript" src="js/jquery.touchSwipe.min.js"></script>
+        <script type="text/javascript" src="js/jquery.ui.touch-punch.min.js"></script>
+        <script src="js/remoteProtocol.js"></script>
+        <script src="js/totalRecallTables.js"></script>
+        <script src="js/totalRecall.js"></script>
+        <script src="js/guiGenerator.js"></script>   
+        <script src="js/files.js"></script>   
+    </head>
+    <body>
+        
+    <script>        
+    
+    var trObjects=[];
+    var websocket; 
+
+    var versionHi = 0;
+    var versionLo = 0;
+    var build = 1;
+    
+    var fps = 25;
+    var test=0;
+    
+    var guiHold=0;
+    
+    var position = 0;
+    
+ //   alert(versionLo);
+    
+    
+   
+    
+    
+    $(document).ready(function() {
+        mpx = 0;
+        connected = false;
+        lastFocused = document.getElementById('routingButton');
+        var regionNames = ['Routing','Dynamics','EQ','Sends','Faders'];
+        
+                                             // define in global scope
+        
+        bank=1;                                             // is used with 1 as base here because 0 equals none
+        region=0;                                           // is used with 1 as base here because 0 equals none
+ //       localStorage.clear();                               // clear localStorage object
+        localStorage.setItem('wsIp','localhost');        // This should
+        localStorage.setItem('wsPort','8001');
+        var newUrl="ws://"+localStorage.wsIp+":"+localStorage.wsPort;
+        localStorage.setItem('wsUrl', newUrl);
+        
+        // initiate memory for ONE region of pots and switches
+        // it seems like localStorage is fucked up here. So might as well not use it
+        // it's short lived stuff anyway
+        pots = []; 
+        potRecs = []; 
+        switches = [];
+        switchRecs = [];
+        var potAngle = [];
+        
+        var appSpace = document.getElementById("app");
+        
+     //   $("#app").html(buildMainGUI());
+        
+        for (var n=0;n<96;n++){
+            pots[n] = 0;
+            potRecs[n] = 0;
+            switches[n] = 0;
+            switchRecs[n] = 0;
+        }
+        
+        
+        for (var n=0;n<127;n++){
+            trObjects[n]=[];
+            for (var i=0;i<96;i++){
+                trObjects[n][i]= new totalRecallClass(n);
+                if((trObjects[n][i].type&1)){
+                    trObjects[n][i].setRecallValue(Math.round(Math.random()*1023));
+                }
+                else{
+                    trObjects[n][i].setRecallValue(Math.round(Math.random()));
+                }
+            };
+        };
+        
+        
+        if (window.navigator.standalone === true) {                          // check for webApp mode
+            $('body').addClass('ios8');
+        }else{
+            $('body').addClass('browser');
+        }
+
+
+        var IS_IPAD = navigator.userAgent.match(/iPad/i) != null;           // check for ipad
+        
+        if(IS_IPAD){
+            $('#banks').addClass('banks');
+        }
+        else{
+            $('#banks').addClass('banks');
+        }
+        
+        $("#mainGUI").draggable({
+            axis: "x"
+        });
+        
+ 
+        $(function() {
+            //Enable swiping...
+            $("#mainGUI").swipe( {
+                //Generic swipe handler for all directions
+                triggerOnTouchLeave:true,
+                swipe:function(event, direction, distance, duration, fingerCount, fingerData) {
+                    if(region!==0){
+                        if(distance>100){
+                            if(direction=='right'){
+                                if(bank>1){
+                                    bank--;
+                                    sendWsRequest(250);                 // temporary
+                                    $("#mainGUI").animate({
+                                        left: '+=1000px'
+                                    }, 1000, function(){
+                                        loadGUI();                      // change to a function for whatever region
+                                        $("#mainGUI").css({
+                                            position: 'relative',
+                                            left: '0px'
+                                        }); 
+                                    });
+
+                                }
+                                else{
+                                    $(this).css({
+                                        position: 'relative',
+                                        left: '0px'
+                                    });
+                                }
+                            }
+                            if(direction=='left'){
+                                if(bank<12){
+                                    bank++;
+                                    sendWsRequest(250);                 // temporary
+                                    $("#mainGUI").animate({
+                                        left: '-=1000px'
+                                    }, 1000, function(){
+                                        loadGUI();
+                                        $("#mainGUI").css({
+                                            position: 'relative',
+                                            left: '0px'
+                                        }); 
+                                    });
+                                }
+                                else{
+                                    $(this).css({
+                                        position: 'relative',
+                                        left: '0px'
+                                    });
+                                }
+                            }                        
+                        }
+                        else{
+                            $(this).css({
+                                position: 'relative',
+                                left: '0px'
+                            });
+                        }
+                    }
+                }
+                //Default is 75px, set to 0 for demo so any distance triggers swipe
+               ,threshold:0
+            });
+        });
+
+        function loadGUI(){
+            
+            if($('#region'+region).hasClass('bankButtonNotFocus')){
+                $('#region'+region).removeClass('bankButtonNotFocus');
+                $('#region'+region).addClass('bankButtonFocus');
+                $(lastFocused).removeClass('bankButtonFocus');
+                $(lastFocused).addClass('bankButtonNotFocus');
+                lastFocused = $('#region'+region);
+            }
+            
+            if(region===0){
+                $("#mainGUI").draggable('disable');
+            }
+            else{
+                $("#mainGUI").draggable('enable');
+            }
+                
+          
+            if(connected){
+                if(region===0){
+                    showAutomation();
+                }
+                if(region===1){
+                    showRouting();
+                }
+                if(region===2){
+                    showDynamics();
+                }
+                if(region===3){
+                    showEq();
+                }
+                if(region===4){
+                    showSends();
+                }
+                if(region===5){
+                    showFaders();
+                }
+            }
+            else{
+                // Show a nag screen
+                showNagScreen();
+            }
+        }
+        
+       function showFiles(){
+                console.log("load files window");
+                $("#mainGUI").html(buildFilesWindow());
+       }         
+        
+       function showAutomation(){
+                console.log("load automation");
+                $("#mainGUI").html(buildAutomationWindow());
+                $("#autoStatuses").html(buildStatuses());
+                $("#autoTracks").html(buildTimeline());
+                $("#autoFaders").html(buildFaderBanks());
+                
+                updateSessionStatuses();
+                
+                drawTimeline();
+                setZoom(1.0);
+                $("#autoTracks").on("mousedown","#c1", function(e){timeLineDragStart(e.pageX);} );
+                $(document).on("mousemove","body", function(e){timeLineDrag(e.pageX, e.pageY);} );
+                $(document).on("mouseup mouseleave","body", function(){timeLineDragStop();} );
+                
+                $("#mainGUI").on("mousedown","#autoStatuses", function(e){statusColumnDragStart(e.pageY);} );
+       }               
+       function showRouting(){
+                console.log("load routing");
+                var allChannels="";
+                for(n=1;n<9;n++)
+                    {
+                    var channel = showRoutingGUI(n,bank);
+                      allChannels+=channel;
+                    }
+                $("#mainGUI").html(allChannels);
+                
+       }        
+       function showDynamics(){
+                console.log("load dynamics");
+                var allChannels="";
+                for(n=1;n<9;n++)
+                    {
+                    var channel = showDynamicsGUI(n,bank);
+                      allChannels+=channel;
+                    }
+                $("#mainGUI").html(allChannels);
+                
+       }
+       function showEq(){
+                var allChannels="";
+                for(n=1;n<9;n++)
+                    {
+                      var channel = showEqGUI(n,bank);
+                      allChannels+=channel;
+                    }
+                $("#mainGUI").html(allChannels);
+       }      
+       function showSends(){
+                console.log("load sends");
+                var allChannels="";
+                for(n=1;n<9;n++)
+                    {
+                    var channel = showSendsGUI(n,bank);
+                      allChannels+=channel;
+                    }
+                $("#mainGUI").html(allChannels);
+                
+       }      
+       function showFaders(){
+                console.log("load faders");
+                var allChannels="";
+                for(n=1;n<9;n++)
+                    {
+                    var channel = showFadersGUI(n,bank);
+                      allChannels+=channel;
+                    }
+                $("#mainGUI").html(allChannels);
+                
+       }
+
+        
+        function sendWsRequest(cmd){
+            console.log('send WS request: '+cmd);
+            var wsObject = {
+                        "cmd":cmd,
+                        "region":region-1,
+                        "bank":bank-1
+            };
+            websocket.send(JSON.stringify((wsObject)));
+        };
+        
+       
+    // TR graphic functions
+    function setSwitch(guiId, guiObj){
+        var switchBitMap = trBitmaps[guiObj.switchState][guiObj.type>>1];   
+        if(document.getElementById(guiId)){
+            document.getElementById(guiId).style.background = switchBitMap; 
+            
+        }
+        
+    };
+    function turnPot(guiId, angle){
+       var elem = document.getElementById(guiId);
+       if(elem.classList.contains('hidden'))
+           {
+              elem.classList.remove("hidden");
+           }
+       rotateAnimation(guiId,angle);
+    };
+    function hidePot(guiId){
+       var elem = document.getElementById(guiId);
+       if(!elem.classList.contains('hidden'))
+           {
+              elem.classList.add("hidden");
+           }
+       
+    };
+
+      
+
+    document.getElementById('region0').addEventListener("click", function(){
+        changeRegion(0);
+    });
+    document.getElementById('region1').addEventListener("click", function(){
+        changeRegion(1);
+    });
+    document.getElementById('region2').addEventListener("click", function(){
+        changeRegion(2);
+    });
+    document.getElementById('region3').addEventListener("click", function(){
+        changeRegion(3);
+    });
+    document.getElementById('region4').addEventListener("click", function(){
+        changeRegion(4);
+    });
+    document.getElementById('region5').addEventListener("click", function(){
+        changeRegion(5);
+    });  
+  
+    function changeRegion(reg){
+        region=reg;
+        sendWsRequest(250);
+        loadGUI();
+    }
+
+        document.getElementById('logo').addEventListener("click", function(){  
+            
+            if(!connected){
+                console.log('Connecting to: ' + localStorage.wsUrl);
+                websocket = new WebSocket(localStorage.wsUrl,"connect");      // try to find ws server
+                console.log(websocket);
+                setTimeout(function(){                              // Wait 3 seconds for the server to respond
+                    if(!connected){
+                        // fetch IP and try again
+                        showIPconfig();
+                    };
+                },1000);        
+                                                                    // on open ws
+                websocket.onopen = function() {
+                    console.log('Websocket Opened');
+                    connected = true;
+                    
+                    var logo = "url('img/logoAll.png') 0px 0px";
+                    document.getElementById('logo').style.background = logo;
+                    console.log(document.getElementById('logo').style.background);
+                    websocket.send("sw96%1.0.0");
+                    loadGUI();                                      // load Region GUI to get away from nag screen
+                };
+
+                websocket.onmessage = function(event) {
+                    
+                    var wsObject = JSON.parse(event.data);
+                    var cmd = wsObject.cmd;
+                    
+                    if(cmd===0x10)      // MTC object
+                        {
+                            position = wsObject.position;
+                            mtcDisplay.fps(wsObject.fps);
+                            
+  
+                            var hourX = 3600*wsObject.fps;
+                            var minX = 60*wsObject.fps;
+                            
+                            wsObject.frame = Math.floor(position % wsObject.fps);
+                            wsObject.sec = Math.floor((position % minX) / wsObject.fps);
+                            wsObject.min = Math.floor((position % hourX) / minX);
+                            wsObject.hour = Math.floor(position / hourX);
+                            
+                            mtcDisplay.hour(wsObject.hour);
+                            mtcDisplay.min(wsObject.min);
+                            mtcDisplay.sec(wsObject.sec);
+                            mtcDisplay.frame(wsObject.frame);
+                            /*
+                            for(n=0;n<48;n++){
+                                var obj = autoPts[n].filter(function ( obj ) {
+                                    return obj.time === position;
+                                })[0];
+
+                                // if(obj && !getTouchSense(1+n)){
+                                if(obj){
+                                    setFaderLevel(1+n,obj.level);
+                                }
+                            }
+                            */
+                        }
+                    if(cmd==0x20)
+                        {
+                            console.log(wsObject.sessionData);
+                            setSessionData(wsObject.sessionData);
+                            showAutomation();
+                        }
+                    if(cmd==0x21)
+                        {
+                            autoPts[wsObject.track]=wsObject.points;
+                            timelinePaths[wsObject.track] = trackPointsToImage(autoPts[wsObject.track],0,0);
+                            
+                         //   console.log(autoPts[0]);
+                        }
+                    if(cmd==0x31)
+                        {
+                            setStatus(wsObject.chn, wsObject.status);
+                        }
+                    if(cmd==0x32)
+                        {
+                            setMute(wsObject.chn, wsObject.status);
+                        }
+                    if(cmd==0x33)
+                        {
+                            setTouchSense(wsObject.chn, wsObject.status);
+                            console.log("chn: "+wsObject.chn+", touch: "+wsObject.status);
+                        }
+                    if(cmd==0x34)
+                        {
+                            setFaderLevel(wsObject.chn, wsObject.status);
+                        }
+                    // recording frame
+                    if(cmd==0x30)
+                        {
+                           // if((arr[2] & 0x10) == 0x10) writeRegions[0].clear();
+       //                     writeRegions[wsObject.track].feed(wsObject.position, wsObject.level);
+                        }
+
+                    if(cmd===250)
+                        {
+                            var trRegion    = wsObject.region;
+                            var trBank      = wsObject.bank;
+                            var trAddress   = wsObject.address;
+                            var trData      = wsObject.data;      // array of 8 10 bit values
+
+                            for(var i=0;i<8;i++)
+                            {
+                                var guiObj = trObjects[trAddress][(trBank*8)+i].setCurrentValue(trData[i]);
+
+                                if((guiObj.type & 1)===0){
+                                    setSwitch("switch"+i+":"+trAddress,guiObj);
+                                }
+                                if((guiObj.type & 1)===1){
+
+                                    turnPot("pot"+i+":"+trAddress,guiObj.potAngle);
+                                    if(trObjects[trAddress][(trBank*8)+i].aligned()){
+                                        hidePot("potRing"+i+":"+trAddress);
+                                    }
+                                    else{
+                                        turnPot("potRing"+i+":"+trAddress,guiObj.potRingAngle);
+                                    }
+                                }
+                            }
+                        }
+                };
+
+                websocket.onclose = function() {
+                    console.log('Websocket closed.');
+                    document.getElementById('logo').src = localStorage.aeLogoBroken;
+                    connected = false;
+                    loadGUI();                                      // load Region GUI to show nag screen
+                };
+            }
+            else{
+                // if we want to close the socket. Do it here
+            }
+        });
+        
+        
+        // bind some buttons and stuff
+        $("#button3").bind( "click", function() {
+            showFiles();
+        });
+    });
+    
+        var trSettings = {
+            "tolerance":100,   // 10 to 100
+            "switchThreshold":512,
+            "antiLog":0,
+            "reverse":0      ,
+            "alignBits":0xff       
+          };
+
+        function trClass(address) {
+          this.name=null;
+          this.address=address;
+          this.type=null;
+          this.region=null;
+          this.currentValue=null;
+          this.recallValue=null;
+          this.aligned = function(){
+            if(this.type===0){   // switch
+              if(this.currentValue===this.recallValue)return 1;
+              else return 0;
+            }
+            else{               // pot
+              // tolerance is fetched from the trSettings object
+              if((Math.floor(this.currentValue/trSettings.tolerance))===(Math.floor(this.recallValue/trSettings.tolerance)))return 1;
+              else return 0;
+            };
+          };
+          this.setCurrentValue = function(value){
+            if(this.type===0){   // switch
+              // switch value is set when ADC value is over a thershold
+              // threshold is fetched from the trSettings object
+              if(value>trSettings.switchThreshold)this.currentValue=1;
+              else this.currentValue=0;
+            }
+            else{               // pot
+              currentValue=value;
+            };
+          };
+        };
+        
+
+        
+        var trBitmaps = [
+            [   // off
+                    "url('img/routingSwitch.png') 0px 0",
+                    "url('img/buttonAll.png') 0px 0",
+                    "url('img/buttonVertAll.png') 0px 0",
+                    "url('img/buttonCutOff.png')",
+                    "none",
+                    ""
+            ],
+            [   // on
+                    "url('img/routingSwitch.png') -18px 0",
+                    "url('img/buttonAll.png') -34px 0",
+                    "url('img/buttonVertAll.png') -19px 0",
+                    "url('img/buttonCut.png')",
+                    "url('img/pull.png')",
+                    ""
+            ],  
+            [   // off alert
+                    "url('img/routingSwitch.png') -36px 0",
+                    "url('img/buttonAll.png') -68px 0",
+                    "url('img/buttonVertAll.png') -38px 0",
+                    "url('img/buttonCutOffAlert.png')",
+                    "url('img/pullAlert.png')",
+                    ""
+            ],
+            [   // on alert
+                    "url('img/routingSwitch.png') -54px 0",
+                    "url('img/buttonAll.png') -102px 0",
+                    "url('img/buttonVertAll.png') -57px 0",
+                    "url('img/buttonCutOnAlert.png')",
+                    "url('img/pullAlert.png')",
+                    ""
+            ]
+        ];
+        
+        var mtcDisplay = new function() {
+            this.fps = function (value){
+                $("#FPS").html(value);
+                fps = value;
+            };
+            this.hour = function (value){
+                $("#HH1").html(Math.floor(value/10));
+                $("#HH0").html(value%10);
+            };
+            this.min = function (value){
+                $("#MM1").html(Math.floor(value/10));
+                $("#MM0").html(value%10);
+                rotateAnimation("clockMin",value*(6));
+            };
+            this.sec = function (value){
+                $("#SS1").html(Math.floor(value/10));
+                $("#SS0").html(value%10);
+                rotateAnimation("clockSec",value*(6));
+            };
+            this.frame = function (value){
+                $("#FF1").html(Math.floor(value/10));
+                $("#FF0").html(value%10);
+                rotateAnimation("clockFrame",value*(360/(fps)));
+            };
+
+        };
+/*
+ * 
+ *  data Object comes in 
+ *      chn[8].data[length].currentValue
+*      chn[8].data[length].recallValue
+ *      
+ *  inject data into objects that capsulate the GUI
+ * 
+ *  check aligning
+ *  
+ *  update GUI with
+ *      align : 1 or 0
+ *      currentValue
+ *      recallValue
+ 
+ */
+    function rotateAnimation(el, degrees){
+        var elem = document.getElementById(el);
+        if(navigator.userAgent.match("Chrome")){
+        elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+        } else if(navigator.userAgent.match("Safari")){
+        elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+        } else if(navigator.userAgent.match("Firefox")){
+        elem.style.MozTransform = "rotate("+degrees+"deg)";
+        } else if(navigator.userAgent.match("MSIE")){
+        elem.style.msTransform = "rotate("+degrees+"deg)";
+        } else if(navigator.userAgent.match("Opera")){
+        elem.style.OTransform = "rotate("+degrees+"deg)";
+        } else if(navigator.userAgent.match("Mobile")){
+        elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+        } else {
+        elem.style.transform = "rotate("+degrees+"deg)";
+        }
+    }
+    
+        
+        </script>
+    </body>
+</html>
+

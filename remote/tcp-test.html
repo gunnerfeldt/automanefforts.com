@@ -1,0 +1,81 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>HTML5 websockets</title>
+<h1>Testa HTML5 websockets</h1>
+<p>Öppna browser JS konsoll.</p>
+<input id='url' value='ws://din IP address:1234'/>
+<button id='connect'>Connect</button>
+<br/>
+<input id='msg' value='Hallå John!'/>
+<button id='send'>Skicka</button>
+ 
+<script>
+    
+var url = document.getElementById('url'),
+    connect = document.getElementById('connect'),
+    msg = document.getElementById('msg'),
+    send = document.getElementById('send');
+
+
+send.addEventListener('click', function(event) {
+ 
+  // Eventhandler click send
+
+    console.log('Skickat: '+ msg.value);
+    websocket.send(msg.value);
+
+} , false);
+
+// 
+ // This example shows a simple TCP echo client. 
+ // The client will send "Hello World" to the server on port 6789 and log 
+ // what has been received from the server.
+ //        
+ try {
+ 
+   //  Create a new TCP client socket and connect to remote host
+   var mySocket = new TCPSocket ("192.168.0.99", 8002);  
+   mySocket.onopen = function() {                    
+     try {
+       // Send data to server
+       var moreBufferingOK = mySocket.send("Hello World");
+       console.log('Data sent to server!'); 
+       
+       // Receive response from server
+       mySocket.onmessage = function (messageEvent) {
+         // Convert received data from ArrayBuffer to string
+         var data = arrayBufferToString (messageEvent.data);  
+         console.log('Data received from server: ' + data);
+         
+         // Close the connection
+         mySocket.close();                               
+       }
+       
+     }        
+     catch(err) {  
+       // Sending failed      
+       console.error('Sending failed: ' + err.name);
+     }                     
+   }  
+   
+   // Connection has been closed 
+   mySocket.onclose = function (){
+     console.log('Connection has been closed');
+   }
+   
+   // Handle errors
+   mySocket.onerror = function(err) {
+     console.error('Error: ' + err.name);
+   }             
+   
+ }        
+   catch(err) {  
+   
+   // Handle runtime exception    
+   console.error('Could not create a TCP socket: ' + err.name);
+ } 
+ 
+</script>
+
+
+   

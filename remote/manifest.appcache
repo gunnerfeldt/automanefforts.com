@@ -1,0 +1,29 @@
+CACHE MANIFEST
+
+#version 1.010
+
+CACHE:
+
+http://automanefforts.com/remote/css/style.css
+
+/remote/img/pot.png
+/remote/img/potRing.png
+/remote/img/buttonOff.png
+/remote/img/buttonOn.png
+/remote/img/buttonAltOff.png
+/remote/img/buttonAltOn.png
+/remote/img/ledRoutingOff.png
+/remote/img/ledRoutingOn.png
+/remote/img/switchRoutingOff.png
+/remote/img/switchRoutingOn.png
+/remote/img/AE-logo.png
+/remote/img/AE-logo-broken.png
+
+http://automanefforts.com/remote/js/jquery-1.9.1.min.js
+http://automanefforts.com/remote/js/libs/jqueryui-1.10.0/jquery-ui.min.js
+http://automanefforts.com/remote/js/jquery.touchSwipe.min.js
+http://automanefforts.com/remote/js/jquery.ui.touch-punch.min.js
+http://automanefforts.com/remote/js/guiGenerator.js
+http://automanefforts.com/remote/js/remoteProtocol.js
+
+NETWORK: *

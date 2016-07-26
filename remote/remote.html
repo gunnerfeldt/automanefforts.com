@@ -1,0 +1,169 @@
+<!--
+To change this template, choose Tools | Templates
+and open the template in the editor.
+-->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title></title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <link href="css/style.css" rel="stylesheet" type="text/css"/>
+        <script src="//code.jquery.com/jquery-1.10.2.js"></script>
+        <script src="//code.jquery.com/ui/1.11.1/jquery-ui.js"></script>
+        <script src="js/remoteProtocol.js"></script>
+        <script src="js/guiGenerator.js"></script>
+        
+        <script>
+            function rotateAnimation(el, degrees){
+                var elem = document.getElementById(el);
+                if(navigator.userAgent.match("Chrome")){
+                elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+                } else if(navigator.userAgent.match("Safari")){
+                elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+                } else if(navigator.userAgent.match("Firefox")){
+                elem.style.MozTransform = "rotate("+degrees+"deg)";
+                } else if(navigator.userAgent.match("MSIE")){
+                elem.style.msTransform = "rotate("+degrees+"deg)";
+                } else if(navigator.userAgent.match("Opera")){
+                elem.style.OTransform = "rotate("+degrees+"deg)";
+                } else {
+                elem.style.transform = "rotate("+degrees+"deg)";
+                }
+            }
+        </script>
+    </head>
+    <body>
+        
+        <input id='url' value='ws://192.168.0.16:8001'/>
+        <button id='connect'>Connect</button>
+        <input id='mpxAddress' value='118'/>
+        <button id='updateAddress'>Set Address</button>
+        <button id='mpx'>MPX Toggle</button>
+        
+        <div class="channelStrip" id="strip1">
+            <img class="knobLP" src="img/knob.png" alt="cog1">
+            <img class="knobHP" src="img/knob.png" alt="cog1">
+            <img class="knobHFGain" id="knobHFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHMF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLMF" src="img/knob.png" alt="cog1">
+            <img class="knobLMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLF" src="img/knob.png" alt="cog1">
+        </div>
+        <div class="channelStrip" id="strip2">
+            <img class="knobLP" src="img/knob.png" alt="cog1">
+            <img class="knobHP" src="img/knob.png" alt="cog1">
+            <img class="knobHFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHMF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLMF" src="img/knob.png" alt="cog1">
+            <img class="knobLMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLF" src="img/knob.png" alt="cog1">
+        </div>
+        <div class="channelStrip" id="strip3">
+            <img class="knobLP" src="img/knob.png" alt="cog1">
+            <img class="knobHP" src="img/knob.png" alt="cog1">
+            <img class="knobHFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHMF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLMF" src="img/knob.png" alt="cog1">
+            <img class="knobLMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLF" src="img/knob.png" alt="cog1">
+        </div>
+        <div class="channelStrip" id="strip4">
+            <img class="knobLP" src="img/knob.png" alt="cog1">
+            <img class="knobHP" src="img/knob.png" alt="cog1">
+            <img class="knobHFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobHMF" src="img/knob.png" alt="cog1">
+            <img class="knobHMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLMFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLMF" src="img/knob.png" alt="cog1">
+            <img class="knobLMFQ" src="img/knob.png" alt="cog1">
+            <img class="knobLFGain" src="img/knob.png" alt="cog1">
+            <img class="knobLF" src="img/knob.png" alt="cog1">
+        </div>
+        <script> 
+    $(document).ready(function() {
+        mpx = 0;
+        var url = document.getElementById('url'),
+        connect = document.getElementById('connect'),
+        mpxAddress = document.getElementById('mpxAddress'),
+        updateAddress = document.getElementById('updateAddress'),
+        mpxButton = document.getElementById('mpx'),
+        websocket;
+        
+        
+        // Event handler to create the websocket connection when someone clicks the button #connect
+        connect.addEventListener('click', function(event) {
+          console.log('Connecting to: ' + url.value);
+          websocket = new WebSocket(url.value);
+
+          // Eventhandler when the websocket is opened.
+          websocket.onopen = function() {
+            console.log('Websocket öppen.');
+            websocket.send('Vi har kontakt.');
+            connected = true;
+            $("#con").html('WS connected');
+          };
+
+            websocket.onmessage = function(event) {
+            //  var fakeFader = parseInt(event.data, 10);
+                  var dataFromServer = event.data;
+                  var arr = [];
+                  for (index = 0; index < dataFromServer.length; ++index) {
+                      arr[index] = dataFromServer.charCodeAt(index);
+              }
+             //   console.log('New data');
+                rotateAnimation("knobHFGain", 210 + (1.17*arr[3]));
+            };
+
+          websocket.onclose = function() {
+            console.log('Websocket stängd.');
+            $("#con").html('WS not connected');
+            connected = false;
+          };
+        } , false);
+        
+        mpxButton.addEventListener('click', function(event) {
+            mpx = !mpx;
+            var sendBytes = [];
+            console.log('MPX: ' + mpx);
+            sendBytes[0]=mpx;
+            sendBytes[1]=mpxAddress.value;
+            var sendStr = "";
+            sendStr = String.fromCharCode.apply(null, sendBytes);
+            websocket.send(sendStr); 
+
+        } , false);
+        
+        updateAddress.addEventListener('click', function(event) {
+            var sendBytes = [];
+            sendBytes[0]=mpx;
+            sendBytes[1]=mpxAddress.value;
+            var sendStr = "";
+            sendStr = String.fromCharCode.apply(null, sendBytes);
+            websocket.send(sendStr); 
+
+        } , false);
+        
+        
+
+    });
+        </script>
+    </body>
+</html>
+

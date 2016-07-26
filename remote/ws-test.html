@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset=utf-8>
+<title>HTML5 websockets</title>
+<h1>Testa HTML5 websockets</h1>
+<p>Öppna browser JS konsoll.</p>
+<input id='url' value='ws://din IP address:1234'/>
+<button id='connect'>Connect</button>
+<br/>
+<input id='msg' value='Hallå John!'/>
+<button id='send'>Skicka</button>
+ 
+<script>
+var url = document.getElementById('url'),
+    connect = document.getElementById('connect'),
+    msg = document.getElementById('msg'),
+    send = document.getElementById('send'),
+    websocket;
+ 
+// Event handler to create the websocket connection when someone clicks the button #connect
+connect.addEventListener('click', function(event) {
+  console.log('Connecting to: ' + url.value);
+  websocket = new WebSocket(url.value);
+ 
+  // Eventhandler when the websocket is opened.
+  websocket.onopen = function() {
+    console.log('Websocket öppen.');
+    websocket.send('Vi har kontakt.');
+  }
+ 
+  websocket.onmessage = function(event) {
+    console.log('Du skickade: ' + event.data);
+  }
+ 
+  // Eventhandler when the websocket is closed.
+  websocket.onclose = function() {
+    console.log('Websocket stängd.');
+  }
+} , false);
+
+send.addEventListener('click', function(event) {
+ 
+  // Eventhandler click send
+
+    console.log('Skickat: '+ msg.value);
+    websocket.send(msg.value);
+
+} , false);
+</script>

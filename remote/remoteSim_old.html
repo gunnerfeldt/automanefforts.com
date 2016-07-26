@@ -1,0 +1,302 @@
+<!doctype html>
+<meta charset=utf-8>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Automan ProTools WebSocket Simulator</title>
+<script src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
+<script src="http://code.jquery.com/ui/1.8.21/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.11.1/themes/smoothness/jquery-ui.css">
+<script type="text/javascript" src="js/jquery.ui.touch-punch.min.js"></script>
+<link rel="stylesheet" type="text/css" href="css/style.css" media="screen" />
+<body>
+    <div id="header">
+        <h1>Automan HUI Protocol</h1>
+    </div>
+    <div id="prefs">
+        <input id='url' value='ws://localhost:8001'/>
+        <button id='connect'>Connect</button>
+        <div>
+                    <div id="con">Not connected</div>
+        </div>
+    </div>
+    <table>
+        <tr>
+            <td>
+                <div id="faders">
+                    <div id="space">
+                        <br/><br/>
+                    <input id="vcaChn" class="chnId" value="1" onchange="changeVcaChn(this.value);"/>
+                    <input id="mfChn" class="chnId" value="1" onchange="changeMfChn(this.value);"/>
+                    </div>
+                    <div id="slider1" title="1"></div>
+                    <div id="slider2" title="1"></div>
+                </div>
+            </td>
+            <td>
+                <div id="wsMonitor">
+                    <div class="statusButton" onclick="setTransport(-1);">reset</div>
+                    <div class="statusButton" onclick="setTransport(0);">stop</div>
+                    <div class="statusButton" onclick="setTransport(1);">play</div>
+                    <div id="statusWrite" class="statusButton" onclick="setStatus(3);">write</div>
+                    <div id="statusTouch" class="statusButton" onclick="setStatus(2);">touch</div>
+                    <div id="statusAuto" class="statusButton" onclick="setStatus(1);">auto</div>
+                    <div id="statusMan" class="statusButton" onclick="setStatus(0);">manual</div>
+                </div>
+            </td>
+        </tr>
+    </table>
+    <script>
+        var connected = false;
+        var websocket;
+        var myTimer = null;
+        var usbInBuffer = {};
+        var usbOutBuffer = {};
+        var position = 0;
+        var fpsList = [10,10,8,8];
+        var fpsVal = [24,25,30,30];
+        var fps = 1;
+        var currentChannel = 0;
+        var currentMfChannel = 0;
+        var mtc =
+        {
+          'state': 0,
+          'qFrame': 0,
+          'fps' : 40,
+          'HH': 0,
+          'MM': 0,
+          'SS': 0,
+          'FF': 0,
+          'run': 0,
+          'stop': 0,
+          'jump': 0,
+          'fps': function(val){
+            this.fps = fpsVal[val];
+          },
+          'position': function(){
+            return ((this.HH*60*60*this.fps)+(this.MM*60*this.fps)+(this.SS*this.fps)+(this.FF));
+          },
+          'tick': function(val){
+            this.qFrame++;
+            if(this.qFrame>3){
+                this.qFrame=0;
+                if(val===1){
+                    this.state = 1;
+                    this.FF++;
+                    if(this.FF>(this.fps-1))
+                    {
+                      this.FF=0;
+                      this.SS++;
+                      if(this.SS>59)
+                      {
+                        this.SS=0;
+                        this.MM++;
+                        if(this.MM>59)
+                        {
+                          this.MM=0;
+                          this.HH++;
+                        }
+                      }
+                    }                    
+                }
+                else this.state = 0;
+            }
+            
+          },
+          'clear': function(){
+            this.HH = 0;
+            this.MM = 0;
+            this.SS = 0;
+            this.FF = 0;
+          }
+        };
+        
+        var usbBuffer = function(){
+            this.buffer = [];
+            for(var m=0;m<4;m++){
+                this.buffer[m] = [];
+                for(var n=0;n<64;n++){
+                    this.buffer[m][n] = 0;
+                }
+            }
+        };
+        
+        usbBuffer.prototype.setVca = function(chn,val){
+            var qFrame = Math.floor(chn/24);
+            var slot = Math.floor(chn%24);
+            this.buffer[qFrame][8+(slot*2)]=val & 0xff;
+            this.buffer[qFrame][9+(slot*2)]=(this.buffer[qFrame][9+(slot*8)]&0xfc)+(val>>8) & 0x3;
+        };        
+        usbBuffer.prototype.setStatus = function(chn,val){
+            var qFrame = Math.floor(chn/24);
+            var slot = Math.floor(chn%24);
+            this.buffer[3][41+(slot*2)]=(this.buffer[3][41+(slot*8)]&0xf3) + ((val&3)<<2);
+        };
+        usbBuffer.prototype.setMute = function(chn,val){
+            var qFrame = Math.floor(chn/24);
+            var slot = Math.floor(chn%24);
+            this.buffer[qFrame][9+(slot*2)]=(this.buffer[qFrame][9+(slot*8)]&0x3f) + (0x80>>val);
+        };
+        
+        usbBuffer.prototype.setMfVca = function(chn,val){
+            this.buffer[3][40+(chn*2)]=val & 0xff;
+            this.buffer[3][41+(chn*2)]=(this.buffer[3][41+(chn*2)]&0xfc)+(val>>8) & 0x3;
+        };        
+        usbBuffer.prototype.setMfTouch = function(chn,val){
+            this.buffer[3][41+(chn*2)]=(this.buffer[3][41+(chn*2)]&0xcf)+(0x20>>val);
+        };
+
+        usbIn = new usbBuffer();
+        
+        $( document ).ready(function(){    
+                
+
+            mtc.fps(1);
+                
+            // Event handler to create the websocket connection when someone clicks the button #connect
+            connect.addEventListener('click', function(event) { 
+            
+            if(!connected){
+                console.log('Connecting');
+                websocket = new WebSocket("ws://localhost:8001","Connect");      // try to find ws server
+                console.log(websocket);
+                setTimeout(function(){                              // Wait 3 seconds for the server to respond
+                    if(!connected){
+                        console.log('Not connected');
+                    };
+                },1000);        
+                                                                    // on open ws
+                websocket.onopen = function() {
+                    console.log('Websocket Opened');
+                    connected = true;
+                    $("#con").html("Connected");
+                    myTimer = setInterval(function(){
+                        mtc.tick(0);
+                        sendToServer();
+                    },9);
+                };
+
+                websocket.onmessage = function(event) {
+                    
+                    var wsObject = JSON.parse(event.data);
+                    var cmd = wsObject.cmd;
+                    
+                    if(cmd===0x2)      // 
+                        {
+                            var qFrame = wsObject.buffer[1];
+                            if(qFrame === 0){
+                                var fader = wsObject.buffer[8] + ((wsObject.buffer[9] & 3)<<8);
+                                if(!touch) $("#slider2").slider( "option", "value", Math.round(fader/10.23) );
+                            }
+                        }
+
+                };
+
+                websocket.onclose = function() {
+                    console.log('Websocket closed.');
+                    connected=false;
+                };
+            }
+            else{
+                // if we want to close the socket. Do it here
+            }
+        
+            } , false);
+  
+            var touch = 0;
+            $(document).on("mousedown","#slider2", function(e){touch=1;usbIn.setMfTouch(currentMfChannel,1);} );
+            $(document).on("mouseup", function(){if(touch)usbIn.setMfTouch(currentMfChannel,0);touch=0;} );
+            
+            $( "#slider1" ).slider({ orientation: "vertical",animate: "fast" });
+                $( ".ui-slider" ).on( "slide", function( event, ui ) {
+                  var thisSliderStr = this.id;
+                  var thisSliderNo= this.title;
+                  var value = $( "#"+thisSliderStr).slider( "option", "value" );
+
+                  value=Math.floor((value*1023)/100);
+                  usbIn.setVca(currentChannel,value);
+              });
+              
+            $( "#slider2" ).slider({ orientation: "vertical",animate: "fast" });
+                $( ".ui-slider" ).on( "slide", function( event, ui ) {
+                  var thisSliderStr = this.id;
+                  var thisSliderNo= this.title;
+                  var value = $( "#"+thisSliderStr).slider( "option", "value" );
+
+                  value=Math.floor((value*1023)/100);
+                  usbIn.setMfVca(currentMfChannel,value);
+              });
+              
+
+        });
+        
+             function changeVcaChn(val){
+                 currentChannel=val-1;
+             }
+             function changeMfChn(val){
+                 currentMfChannel=val-1;
+             }
+        
+             function setStatus(status){ 
+                usbIn.setStatus(currentMfChannel,status);
+              }
+              
+             function setTransport(state){
+                if(state === 1){
+                    mtc.run = 1;
+                    clearInterval(myTimer);
+                    myTimer = setInterval(function(){
+                        mtc.tick(1);
+                        sendToServer();
+                    },fpsList[fps]);
+                }
+                if(state === 0){
+                    mtc.stop = 1;
+                    clearInterval(myTimer);
+                    myTimer = setInterval(function(){
+                        mtc.tick(0);
+                        sendToServer();
+                    },9);
+                }
+                if(state === -1 && myTimer !== null){
+                    mtc.jump = 1;
+                    mtc.clear();
+                }
+              }
+              
+            function sendToServer(){
+                
+                if(connected){
+                    var mtcByte = 0;
+
+                    mtcByte += mtc.qFrame;
+                    mtcByte += fps << 2;
+                    mtcByte += mtc.run << 4;
+                    mtcByte += mtc.stop << 5;
+                    mtcByte += mtc.jump << 6;
+
+                    mtc.run = 0;
+                    mtc.stop = 0;
+                    mtc.jump = 0;
+                    usbIn.buffer[mtc.qFrame][1] = mtcByte;
+                    usbIn.buffer[mtc.qFrame][2] = mtc.position() & 0xFF;
+                    usbIn.buffer[mtc.qFrame][3] = (mtc.position()>>8) & 0xFF;
+                    usbIn.buffer[mtc.qFrame][4] = (mtc.position()>>16) & 0xFF;
+                    usbIn.buffer[mtc.qFrame][5] = (mtc.position()>>24) & 0xFF;
+                    
+                    var wsObject = {
+                               "cmd":1,
+                               "buffer":usbIn.buffer[mtc.qFrame]
+                    };   
+                    websocket.send(JSON.stringify((wsObject)));    
+                    
+                    for(n=0;n<8;n++){
+                        usbIn.buffer[mtc.qFrame][41+(n*2)] = usbIn.buffer[mtc.qFrame][41+(n*2)] & 0x3;
+                    }
+                    
+                    
+                }
+
+            }
+              
+            
+    </script>  
+</body>

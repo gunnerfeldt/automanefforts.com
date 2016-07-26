@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+    <meta charset=utf-8>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="minimum-scale=0.25, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-touch-fullscreen" content="yes">  
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">   
+<title>Automan WebSocket View</title>
+<script src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
+<script src="http://code.jquery.com/ui/1.8.21/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.11.1/themes/smoothness/jquery-ui.css">
+<script type="text/javascript" src="js/jquery.ui.touch-punch.min.js"></script>
+<link rel="stylesheet" type="text/css" href="css/style.css" media="screen" />
+<body>
+    <div id="watch">
+        <img class="watch" id="watchBackground" src="img/watch.png"/>
+        <img class="watch" id="watchMinutes" src="img/minutes.png"/>
+        <img class="watch" id="watchSeconds" src="img/seconds.png"/>
+        <img class="watch" id="watchFrames" src="img/frames.png"/>
+    </div>
+    <canvas id="c1" width="800" height="480" style="border:1px solid #FFF;">
+    </canvas>
+    <div id="prefs">
+        <input id='url' value='ws://192.168.0.12:8001'/>
+        <button id='connect'>Connect</button>
+    </div>
+    <script>
+        var zoom = 1;
+        var page=0; 
+        var timelineWidth = 0;
+        var timelineHeight = 0;
+        var tracksInTimeline = 0;
+        var trackHeight = 0;
+        var trackBackground = {};
+        var trackPoints = [];
+        var writeRegions=[];
+        var lastPage=0;
+        var scaleHeightRatio = 0;
+        var lastPos;
+        var fps = 25;
+        
+                        
+        
+        $( document ).ready(function(){    
+            var url = document.getElementById('url'),
+            connect = document.getElementById('connect'),
+            websocket;
+
+            var connected = false;
+            timelineWidth = document.getElementById("c1").width;
+            timelineHeight = 480;
+            tracksInTimeline = 8;
+            trackHeight = timelineHeight/tracksInTimeline;
+            scaleHeightRatio = 1023 / (trackHeight-4);
+            trackBackground = drawTrackBackground();
+            var autoBuffer = document.createElement('canvas');
+            autoBuffer.width = timelineWidth;
+            autoBuffer.height = trackHeight;
+            var autoPath = autoBuffer.getContext("2d");
+            autoPath.strokeStyle = '#000';
+            autoPath.lineWidth="2";
+            autoPath.beginPath(); 
+            autoPath.moveTo(0,0)
+var position=0;
+            var autoPts = [];
+        //    var recPts=[];
+                
+                for(var n=0;n<8;n++)
+                    {
+                        autoPts[n]=[];
+                        autoPts[n].push({
+                                "time":0,
+                                "level":0
+                        });
+                        trackPoints[n]=trackPointsToImage(autoPts[n],0);
+                        
+                            /* ** writeRegions **
+                             * 
+                             * "writeRegions[n]" n is 8 channel index
+                             * "feed(position, level)" takes current MTC position and a 10 bit level
+                             * "getImage()" returns write region as an overlay to the track
+                             * 
+                             */
+                        writeRegions[n]={
+                            "buffer": {},
+                            "ctx": {},
+                            "path": {},
+                            "start": null,
+                            "end": null,
+                            "dropIn": null,
+                            "dropOut": null,
+                            "lastPage": 0,
+                            "lastPos": 0,
+                            "feed": function(pos,level){
+                                if(pos>(this.lastPos+1))this.clear();
+                                this.end=pos;
+                                this.dropOut = (this.end-(page*timelineWidth));
+                                if(this.dropOut>timelineWidth)this.dropOut=timelineWidth;
+                                
+                                if(this.start===null || this.lastPage!=page){
+                                    this.buffer = document.createElement('canvas');
+                                    this.buffer.width = timelineWidth;
+                                    this.buffer.height = trackHeight;
+                                    this.ctx=this.buffer.getContext("2d");
+                                    this.path=this.buffer.getContext("2d");
+                                    this.start=pos;
+                                    this.dropIn = this.start-(page*timelineWidth);
+                                    if(this.dropIn<0)this.dropIn=0;
+                                    this.ctx.beginPath();
+                                    this.path.beginPath();
+                                    this.path.lineWidth="2";
+                                    this.path.strokeStyle = '#a00';
+                                    this.path.moveTo(this.start-(page*timelineWidth),trackHeight-(level/scaleHeightRatio)-3);
+                                }
+                                else
+                                {
+                                    this.path.lineTo(this.dropOut,trackHeight-(level/scaleHeightRatio)-3);
+                                }
+                                this.lastPage=page;
+                                this.lastPos=pos;
+                            },
+                            "getStart": function(){
+                                return this.start-(page*timelineWidth);
+                            },
+                            "getImage": function (){
+                                if(this.start===null || this.lastPage!=page){
+                                    this.buffer = null;
+                                }
+                                else{
+                                    this.ctx.fillStyle = '#f55';
+                                    this.ctx.fillRect(this.dropIn, 1, this.dropOut-this.dropIn, trackHeight-3);
+                                    this.ctx.stroke();
+                                    this.path.stroke();
+                                }
+                                return this.buffer;
+                            },
+                            "getContour": function (){
+                                this.path.rect(this.dropIn, 0, this.dropOut-this.dropIn, trackHeight-1);
+                                this.path.stroke();
+                                return this.buffer;
+                            },
+                            "clear": function (){
+                                this.buffer=null;
+                                this.start=null;
+                            }
+                        };
+                    }
+                
+                
+
+                
+               
+            var context = c.getContext("2d");
+
+            context.clearRect(0, 0, timelineWidth, timelineHeight);
+            context.beginPath();
+
+            for(var n=0;n<8;n++) {   
+                context.drawImage(trackBackground, 0, n*trackHeight);
+            }
+            context.stroke();
+
+            // Event handler to create the websocket connection when someone clicks the button #connect
+            connect.addEventListener('click', function(event) {
+              console.log('Connecting to: ' + url.value);
+              websocket = new WebSocket(url.value);
+
+              // Eventhandler when the websocket is opened.
+              websocket.onopen = function() {
+                console.log('Websocket öppen.');
+                websocket.send('Vi har kontakt.');
+                connected = true;
+                $("#con").html('WS connected');
+              };
+
+              websocket.onmessage = function(event) {
+                                 
+                var data = event.data;
+                var arr = [];
+                for (index = 0; index < data.length; ++index) {
+                    arr[index] = data.charCodeAt(index);
+                }
+                
+                // new mtc frame
+                if(arr[0]==0x10)
+                    {
+                        // Calculate what page is displayed
+                        
+                     //   var position = ((arr[1]*60*60*fps)+(arr[2]*60*fps)+(arr[3]*fps)+(arr[4]))/zoom;
+                     
+                        position = arr[5]<<24;
+                        position += arr[4]<<16;
+                        position += arr[3]<<8;
+                        position += arr[2];
+                        
+                        var mtcObject = JSON.parse(data.substring(6))
+                        
+                        /*
+                        var hours = Math.floor(position/(3600*fps));
+                        var rem = Math.floor(position%(3600*fps));
+                        var minutes = Math.floor(rem/(60*fps));
+                        rem = Math.floor(rem%(60*fps));
+                        var seconds = Math.floor(rem/fps);
+                        var frames = Math.floor(rem%fps);
+                        */
+                        var frames = mtcObject.FF;
+                        var seconds = mtcObject.SS;
+                        var minutes = mtcObject.MM;
+                        
+                        page=Math.floor(position/timelineWidth);
+                       
+                        var c = document.getElementById("c1");
+                        var context = c.getContext("2d");
+                        
+                        var transport = position-(page*timelineWidth);
+
+                        context.clearRect(0, 0, timelineWidth, timelineHeight);
+                        context.beginPath();
+                        
+                        lastPos=0;
+                        
+                        var watchId = "watchFrames";
+                        var frameDeg=frames*(360/(fps));
+                        rotateAnimation(watchId,frameDeg);
+                        
+                        var watchId = "watchSeconds";
+                        var frameDeg=seconds*(6);
+                        rotateAnimation(watchId,frameDeg);
+                        
+                        var watchId = "watchMinutes";
+                        var frameDeg=minutes*(6);
+                        rotateAnimation(watchId,frameDeg);
+                        
+                        /*
+                        if(position>875 && position<1250)writeRegions[3].feed(position,position&0x3ff);
+                        if(position>243 && position<654)writeRegions[5].feed(position,position&0x3ff);
+                        if(position>680 && position<1200)writeRegions[7].feed(position,position&0x3ff);
+                        if(position>432 && position<1250)writeRegions[1].feed(position,position&0x3ff);
+                        */
+                        
+                        for(var n=0;n<8;n++) {   
+                            context.drawImage(trackBackground, 0, n*trackHeight);
+                            if(page!==lastPage)
+                            {
+                                trackPoints[n] = trackPointsToImage(autoPts[n],position);
+                            }
+                            context.drawImage(trackPoints[n], 0, n*trackHeight);
+                            // if there's a write region
+                            if(writeRegions[n].getImage() != null)
+                            {
+                                context.drawImage(writeRegions[n].getImage(), 0, n*trackHeight);
+                            }
+                        }
+                        
+                        
+
+                        context.moveTo(transport,0);
+                        context.strokeStyle = '#ff0000';
+                        context.lineTo(transport,timelineHeight);
+                        context.stroke();
+
+                        lastPage=page;
+ 
+                    }
+                
+                
+                // complete new track of auto points
+                if((arr[0]&0xF0)==0x20)
+                {
+                    var c = document.getElementById("c1");
+                    var context = c.getContext("2d");
+                    var chn = (arr[0]&0x0F)-1;
+                    
+                    autoPts[chn]=JSON.parse(data.substring(1));
+                    
+                    trackPoints[chn] = trackPointsToImage(autoPts[chn],position);
+                    
+                }
+                
+                // recording frame
+                if(arr[0]==0x30)
+                    {
+                        var vca = ((arr[2] & 0x3)<<8) + arr[1];
+                       // if((arr[2] & 0x10) == 0x10) writeRegions[0].clear();
+                        writeRegions[0].feed(position, vca);
+                    }
+                    
+                if(arr[0]==0x40)
+                    {
+ 
+                    }
+                
+
+                
+              };
+
+              websocket.onclose = function() {
+                console.log('Websocket stängd.');
+                $("#con").html('WS not connected');
+                connected = false;
+              };
+              websocket.onerror = function() {
+                console.log('error.');
+              };
+            } , false);
+
+              
+        });
+        
+        
+        function drawTrackBackground()
+        {
+            var buffer = document.createElement('canvas');
+            buffer.width = timelineWidth;
+            buffer.height = trackHeight;
+            var ctx = buffer.getContext('2d');
+            ctx.clearRect(0, 0, timelineWidth, trackHeight);
+            ctx.beginPath(); 
+            ctx.fillStyle = '#aaa';
+            ctx.fillRect(1, 0, timelineWidth, trackHeight-1);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.lineWidth="1";
+            ctx.strokeStyle = '#000';
+            ctx.moveTo(0,0);
+            ctx.lineTo(timelineWidth,0);
+            ctx.stroke();
+            
+            ctx.beginPath();
+            ctx.lineWidth="1";
+            ctx.strokeStyle = '#fff';
+            ctx.moveTo(0,trackHeight-1);
+            ctx.lineTo(timelineWidth, trackHeight-1);
+            ctx.stroke();
+            return buffer;
+        }
+        
+
+        
+        var drawTrackOld = function (track, position, autoPts, page, width, height) {
+             
+                    
+            if(writeRegions[track])
+            {
+                var start = writeRegions[track].start-(page*width);
+                var end = writeRegions[track].end-(page*width);
+                if (start<0)start=0;
+                if (end>width)end=width;
+                end=end-start;
+                ctx.beginPath();
+                ctx.fillStyle = '#f55';
+                ctx.fillRect(start, 1, end, height-3);
+                ctx.stroke();
+                
+                ctx.beginPath(); 
+                ctx.lineWidth="2";
+                ctx.strokeStyle = '#000';
+                
+                var lastLevel = height-(Math.floor(writeRegionPoints[track].oldLevel/scaleHeightRatio))-3;
+                var level = height-(Math.floor(writeRegionPoints[track].level/scaleHeightRatio))-3;
+                
+                ctx.moveTo(start,lastLevel);
+                ctx.lineTo(end+start,level);
+                
+                ctx.stroke();
+
+            }
+        
+        
+            return buffer;
+        };  
+        
+
+
+function rotateAnimation(el, degrees){
+    var elem = document.getElementById(el);
+    if(navigator.userAgent.match("Chrome")){
+    elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+    } else if(navigator.userAgent.match("Safari")){
+    elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+    } else if(navigator.userAgent.match("Firefox")){
+    elem.style.MozTransform = "rotate("+degrees+"deg)";
+    } else if(navigator.userAgent.match("MSIE")){
+    elem.style.msTransform = "rotate("+degrees+"deg)";
+    } else if(navigator.userAgent.match("Opera")){
+    elem.style.OTransform = "rotate("+degrees+"deg)";
+    } else if(navigator.userAgent.match("Mobile")){
+    elem.style.WebkitTransform = "rotate("+degrees+"deg)";
+    } else {
+    elem.style.transform = "rotate("+degrees+"deg)";
+    }
+}
+
+function trackPointsToImage(points, time)
+{
+     var buffer = document.createElement('canvas');
+     buffer.width = timelineWidth;
+     buffer.height = trackHeight;
+     var ctx = buffer.getContext('2d');
+     ctx.clearRect(0, 0, timelineWidth, trackHeight);
+     ctx.lineWidth="2";
+     ctx.strokeStyle = '#000';
+     ctx.beginPath(); 
+     var lastLevel=((Math.floor(points[0].level/trackHeight))+0);
+     ctx.moveTo(0,lastLevel);
+
+     if(points.length>1)
+     {
+        for(var n=0;n<points.length-1;n++)
+         {
+             var level = trackHeight-(Math.floor(points[n].level/scaleHeightRatio))-3;
+             var time = points[n].time;
+
+             if((time+1)>(page*timelineWidth))
+             {
+                 if(time<((page+1)*timelineWidth))
+                 {
+                     ctx.lineTo(time-(page*timelineWidth)-1,lastLevel);
+                     ctx.lineTo(time-(page*timelineWidth), level);
+                     lastLevel=level;
+                 }  
+                 else
+                 {
+                     ctx.lineTo(timelineWidth,lastLevel);
+                     break;
+                 }
+             } 
+             else 
+             {
+                  lastLevel=level;
+                  ctx.moveTo(0,lastLevel);
+             }
+         }
+     ctx.lineTo((timelineWidth),lastLevel);
+     ctx.stroke();
+     }
+     return buffer;  
+}
+
+    </script>  
+</body>
+

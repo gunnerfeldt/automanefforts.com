@@ -1,0 +1,225 @@
+<!doctype html>
+<meta charset=utf-8>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Automan ProTools WebSocket Simulator</title>
+<script src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
+<script src="http://code.jquery.com/ui/1.8.21/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.11.1/themes/smoothness/jquery-ui.css">
+<script type="text/javascript" src="js/jquery.ui.touch-punch.min.js"></script>
+<link rel="stylesheet" type="text/css" href="css/style.css" media="screen" />
+<body>
+    <div id="header">
+        <h1>Automan HUI Protocol</h1>
+    </div>
+    <div id="prefs">
+        <input id='url' value='ws://192.168.0.99:8001'/>
+        <button id='connect'>Connect</button>
+        <table id="midPanel" class="pane">
+                <tr>
+                    <td>
+                        <a>HUI bank (1-4)</a>
+                    </td>
+                    <td>
+                            <input id='bank' value='1'/> 
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <a>HUI channel (1-8)</a> 
+                    </td>
+                    <td>
+                        <input id='chn' value='1'/>
+                    </td>
+                </tr>
+        </table> 
+        <div id="leftPane">
+        </div>
+        <div id="rightPane">
+
+        </div>
+    </div>
+    <table>
+        <tr>
+            <td>
+                <div id="faders">
+                    <div id="space">
+                        <br/><br/>
+                    </div>
+                    <div id="slider1" title="1"></div>
+                </div>
+            </td>
+            <td>
+                <div id="wsMonitor">
+                    <div id="con">Not connected</div>
+            <table id="wsPt">
+            <thead>
+                <tr>
+                    <th id="th1">Index</th>
+                    <th id="th2">Data</th>
+                    <th id="th3">Description</th>
+                </tr>
+            </thead>
+                            <tr>
+                                <td>
+                                    <a>msg[0]:</a>
+                                </td>
+                                <td id="msg0" class="msg">
+                                    0
+                                </td>
+                                <td class="descr">
+                                    <a> - HUI command = 241 (0xF1)</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <a>msg[1]:</a> 
+                                </td>
+                                <td id="msg1" class="msg">
+                                    0
+                                </td>
+                                <td class="descr">
+                                    <a> - Not used yet</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <a>msg[2]:</a> 
+                                </td>
+                                <td id="msg2" class="msg">
+                                    0
+                                </td>
+                                <td class="descr">
+                                    <a> - Channel No (0-7)</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <a>msg[3]:</a> 
+                                </td>
+                                <td id="msg3" class="msg">
+                                    0
+                                </td>
+                                <td class="descr">
+                                    <a> - HUI Bank No (0-3)</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <a>msg[4]:</a> 
+                                </td>
+                                <td id="msg4" class="msg">
+                                    0
+                                </td>
+                                <td class="descr">
+                                    <a> - Fader 10 bit Lo byte</a>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <a>msg[5]:</a> 
+                                </td>
+                                <td id="msg5" class="msg">
+                                    0
+                                </td>
+                                <td class="descr">
+                                    <a> - Fader 10 bit Hi byte</a>
+                                </td>
+                            </tr>
+                    </table> 
+                </div>
+            </td>
+        </tr>
+    </table>
+    <script>
+        $( document ).ready(function(){    
+            var url = document.getElementById('url'),
+                connect = document.getElementById('connect'),
+                bank = document.getElementById('bank'),
+                chn = document.getElementById('chn'),
+                websocket;
+
+                var connected = false;
+
+            // Event handler to create the websocket connection when someone clicks the button #connect
+            connect.addEventListener('click', function(event) {
+              console.log('Connecting to: ' + url.value);
+              websocket = new WebSocket(url.value);
+
+              // Eventhandler when the websocket is opened.
+              websocket.onopen = function() {
+                console.log('Websocket öppen.');
+                websocket.send('Vi har kontakt.');
+                connected = true;
+                $("#con").html('WS connected');
+              };
+
+              websocket.onmessage = function(event) {
+                
+                console.log('Du skickade: ' + event.data);
+                var data = event.data;
+                var arr = [];
+                for (index = 0; index < data.length; ++index) {
+                    arr[index] = data.charCodeAt(index);
+                    console.log(arr[index]);
+                }
+                var position = (arr[4]+(arr[5]<<8))/10.23;
+                var idStr="#slider1";
+                $(idStr).slider( "option", "value", position );
+                
+              };
+
+              websocket.onclose = function() {
+                console.log('Websocket stängd.');
+                $("#con").html('WS not connected');
+                connected = false;
+              };
+              websocket.onerror = function() {
+                console.log('error.');
+              };
+            } , false);
+            /*
+            send.addEventListener('click', function(event) {
+
+              // Eventhandler click send
+
+                console.log('Skickat: '+ msg.value);
+                websocket.send(msg.value);
+
+            } , false);
+            */
+            $( "#slider1" ).slider({ orientation: "vertical",animate: "fast" });
+                $( ".ui-slider" ).on( "slide", function( event, ui ) {
+                  var thisSliderStr = this.id;
+                  var thisSliderNo= this.title;
+                  var sendBytes = [];
+
+                  var huiBank = bank.value-1;
+                  var huiChn = chn.value-1;
+                  var value = $( "#"+thisSliderStr).slider( "option", "value" );
+
+                  value=Math.floor((value*1023)/100);
+
+                  sendBytes[0]=0xF1;
+                  sendBytes[1]=huiBank;
+                  sendBytes[2]=huiChn;
+                  sendBytes[3]=0x00;
+                  sendBytes[4]=value&0xFF;
+                  sendBytes[5]=value>>8;
+
+
+                  var sendStr = "";
+                  sendStr = String.fromCharCode.apply(null, sendBytes);
+
+                  if(connected){
+                    $("#msg0").html(sendBytes[0]);
+                    $("#msg1").html(sendBytes[1]);
+                    $("#msg2").html(sendBytes[2]);
+                    $("#msg3").html(sendBytes[3]);
+                    $("#msg4").html(sendBytes[4]);
+                    $("#msg5").html(sendBytes[5]);
+                     websocket.send(sendStr); 
+                  }  
+              });
+        });
+    </script>  
+</body>

@@ -1,0 +1,299 @@
+<!doctype html>
+<meta charset=utf-8>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>Automan ProTools WebSocket Simulator</title>
+<script src="http://code.jquery.com/jquery-1.7.2.min.js"></script>
+<script src="http://code.jquery.com/ui/1.8.21/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.11.1/themes/smoothness/jquery-ui.css">
+<script type="text/javascript" src="js/jquery.ui.touch-punch.min.js"></script>
+<link rel="stylesheet" type="text/css" href="css/style.css" media="screen" />
+<body>
+    <div id="prefs">
+        <input id='url' value='ws://localhost:8002'/>
+        <button id='connect'>Connect</button>
+        <div>
+                    <div id="con">Not connected</div>
+        </div>
+    </div>
+        <div id="faders">
+            <input id="vcaChn" class="chnId" value="1" onchange="changeVcaChn(this.value);"></div>
+            <div class= "slider" id="sliderVCA" title="1"></div>
+            <div id="mf08"></div>
+        </div>
+        <div id="wsMonitor">
+            <div class="statusButton" onclick="setTransport(-1);">reset</div>
+            <div class="statusButton" onclick="setTransport(0);">stop</div>
+            <div class="statusButton" onclick="setTransport(1);">play</div>
+            <div id="statusSsl" class="statusButton" onclick="setSslStatus();">SSL status</div>
+        </div>
+    <div>---</div>
+    <canvas id="vcaDisplay" height="210" width="480"></>
+    <div>---</div>
+    <script>
+        var connected = false;
+        var websocket;
+        var position = 0;
+        var currentChannel = 0;
+        var vcaIn = [];
+        var status = [];
+        var vcaOutBufferMf = 0;
+        var bufferedVal = 0;
+        var touchId = -1;
+        
+        for(var i = 0;i<96;i++){
+            vcaIn[i] = 0;
+            status[i] = 0;
+        }
+        
+        $( document ).ready(function(){ 
+            
+            var faderDiv = document.getElementById("mf08");
+            var content = "";
+            
+            for(var i = 0;i<8;i++){
+                content += '<button class="mf08switch write" id="write' + i + '" onclick="clickW(' + i + ')">W</button>';
+                content += '<button class="mf08switch touch" id="touch' + i + '" onclick="clickT(' + i + ')">T</button>';
+                content += '<div class="ledDisplay" id="ledDisplay'+i+'">XX</div>';
+                content += '<button class="mf08switch auto" id="auto' + i + '" onclick="clickA(' + i + ')">A</button>';
+                content += '<div class= "slider" id="slider'+i+'" title="'+i+'"></div>';
+            } 
+            faderDiv.innerHTML = content;    
+                   
+            for(var i = 0;i<8;i++){
+                var sliderId = "#slider"+i;
+                $( sliderId ).slider({ orientation: "vertical"});
+                $( sliderId ).on( "slide", function( event, ui ) {
+                    var idd = "#slider"+this.title; 
+                    var value = $( idd ).slider( "value" );
+                    var id = parseInt(this.title);
+                    value=Math.floor((value*1023)/100);
+                    slide(value, id);
+                });
+                document.getElementById("slider"+i).addEventListener("mousedown", function(){
+                    touchId = parseInt(this.title);
+                    touch(1,touchId);
+                    var idd = "#slider"+this.title; 
+                    var value = $( idd ).slider( "value" );
+                    value=Math.floor((value*1023)/100);
+                    slide(value, touchId);
+                });
+                document.addEventListener("mouseup", function(){
+                    if(touchId!=-1){
+                        touch(0, touchId);
+                        touchId = -1;
+                    }
+                    else{
+                        console.log("mouse release");
+                    }
+                    
+                    
+                });
+            }
+            
+              
+                
+            // Event handler to create the websocket connection when someone clicks the button #connect
+            connect.addEventListener('click', function(event) { 
+            
+            if(!connected){
+                console.log('Connecting');
+                websocket = new WebSocket("ws://localhost:8002","Connect");      // try to find ws server
+                console.log(websocket);
+                setTimeout(function(){                              // Wait 3 seconds for the server to respond
+                    if(!connected){
+                        console.log('Not connected');
+                    };
+                },1000);        
+                                                                    // on open ws
+                websocket.onopen = function() {
+                    console.log('Websocket Opened');
+                    connected = true;
+                    $("#con").html("Connected");
+                };
+
+                websocket.onmessage = function(event) {
+                    
+                    var wsObject = JSON.parse(event.data);
+                    var cmd = wsObject.cmd;
+                    
+                    if(cmd===0x2)      // 
+                        {
+                            vcaIn[wsObject.chn] = wsObject.val;
+                            if(wsObject.chn>87){
+                                var id = wsObject.chn-88;
+                                if((touchId != id) && (status[wsObject.chn] !=3)) {
+                                    $("#slider"+id).slider( "option", "value", Math.round(wsObject.val/10.23) );
+                                    slide(wsObject.val,id);
+                                }
+                            }
+                            else{
+                                var val = (1023-wsObject.val)/10.2;
+                                var ctx = vcaDisplay.getContext("2d");
+                                ctx.clearRect((wsObject.chn*10)+2,1,6,102);
+                                
+                                ctx.beginPath();
+                                ctx.lineWidth="1";
+                                ctx.strokeStyle="red";
+                                ctx.moveTo((wsObject.chn*10)+2,(val)+1);
+                                ctx.lineTo((wsObject.chn*10)+8,(val)+1);
+                                
+                                ctx.stroke();  
+                            }
+                        }
+                    
+                    if(cmd===0x3)      // 
+                        {
+                            status[wsObject.chn] = wsObject.status;
+                            if(wsObject.chn>87){
+                                var aId = "auto"+(wsObject.chn - 88);
+                                var tId = "touch"+(wsObject.chn - 88);
+                                var wId = "write"+(wsObject.chn - 88);
+                                if(wsObject.status == 0){
+                                    document.getElementById(aId).style.backgroundColor = "#aaa";
+                                    document.getElementById(tId).style.backgroundColor = "#aaa";
+                                    document.getElementById(wId).style.backgroundColor = "#aaa";
+                                }
+                                if(wsObject.status == 1){
+                                    document.getElementById(aId).style.backgroundColor = "#5c5";
+                                    document.getElementById(tId).style.backgroundColor = "#aaa";
+                                    document.getElementById(wId).style.backgroundColor = "#aaa";
+                                }
+                                if(wsObject.status == 2){
+                                    document.getElementById(aId).style.backgroundColor = "#5c5";
+                                    document.getElementById(tId).style.backgroundColor = "#cc5";
+                                    document.getElementById(wId).style.backgroundColor = "#aaa";
+                                }
+                                if(wsObject.status == 3){
+                                    document.getElementById(aId).style.backgroundColor = "#5c5";
+                                    document.getElementById(tId).style.backgroundColor = "#aaa";
+                                    document.getElementById(wId).style.backgroundColor = "#f55";
+                                }                                
+                            }
+
+                        }
+                    if(cmd===0x4)      // 
+                        {
+                            updateVca(wsObject.vca);
+                        }
+                    if(cmd===0x10)      // ID change
+                        {
+                            console.log("ID change chn "+wsObject.chn+" ID "+wsObject.id);
+                            document.getElementById("ledDisplay"+(wsObject.chn-88)).innerHTML = wsObject.id;
+                        }
+                    if(cmd===0x11)      // blink
+                        {
+                            console.log("ID blink chn "+wsObject.chn);
+                            var cntr = 8;
+                            var blinkTimer = setInterval(function(){
+                                cntr--;
+                                if(cntr&1) document.getElementById("ledDisplay"+(wsObject.chn-88)).style.visibility = "hidden";
+                                else document.getElementById("ledDisplay"+(wsObject.chn-88)).style.visibility = "visible";
+                                
+                                if(cntr==0) clearInterval(blinkTimer);
+                            },250)
+                        }
+
+                };
+
+                websocket.onclose = function() {
+                    console.log('Websocket closed.');
+                    connected=false;
+                };
+            }
+            else{
+                // if we want to close the socket. Do it here
+            }
+        
+            } , false);
+ 
+            
+            $( "#sliderVCA" ).slider({ orientation: "vertical",animate: "fast" });
+                $( "#sliderVCA" ).on( "slide", function( event, ui ) {
+                  var thisSliderStr = this.id;
+                  var thisSliderNo= this.title;
+                  var value = $( "#"+thisSliderStr).slider( "option", "value" );
+                  value=Math.floor((value*1023)/100);
+                  sendToServer(2,currentChannel,value);
+              });
+
+              
+              var vcaDisplay = document.getElementById("vcaDisplay");
+              var ctx = vcaDisplay.getContext("2d");
+              
+                ctx.beginPath();
+                ctx.lineWidth="2";
+                ctx.strokeStyle="#444";
+                
+              for(var i = 0;i<48;i++){
+                  ctx.rect((i*10),0,10,104);
+                  ctx.rect((i*10),105,10,104);
+              }
+              ctx.stroke();    
+        });
+        
+             function changeVcaChn(val){
+                 currentChannel=val-1;
+             }
+        
+             function setSslStatus(){ 
+                    sendToServer(5,currentChannel,1);
+              }
+              
+             function setTransport(state){
+                if(state === 1){
+                    sendToServer(0,0,1);
+                }
+                if(state === 0){
+                    sendToServer(0,0,0);
+                }
+                if(state === -1){
+                    sendToServer(0,0,2);
+                }
+              }
+              
+            function updateVca(vcaObj){
+                
+            }
+            
+            function sendToServer(type,chn,value){
+                
+                if(connected){
+                    var wsObject = {
+                               "cmd":1,
+                               "type":type,
+                               "chn":chn,
+                               "value":value
+                    };   
+                    websocket.send(JSON.stringify((wsObject)));
+                }
+            }
+            
+            // events for mf08
+            
+            function clickW(id){
+                console.log("write switch "+id);
+                sendToServer(1,88+id,3);
+            }
+            function clickT(id){
+                console.log("touch switch "+id);
+                sendToServer(1,88+id,2);
+            }
+            function clickA(id){
+                console.log("auto switch "+id);
+                sendToServer(1,88+id,1);
+            }
+            function touch(val, id){
+                idd = (88+id);
+            //    console.log("touch "+val+" id "+id);
+                if(val == 0) $("#slider"+id).slider( "option", "value", Math.round(vcaIn[idd]/10.23) );
+                sendToServer(4,idd,val);
+            }  
+            function slide(val, id){
+                id = (88+id);
+            //    console.log("slide "+val+" id "+id);
+                sendToServer(3,id,val);
+            }  
+              
+            
+    </script>  
+</body>
